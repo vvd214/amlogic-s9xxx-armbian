@@ -26,6 +26,7 @@ permissions:
 env:
   TZ: Etc/UTC
   ARMBIAN_RELEASE: bullseye
+  ARMBIAN_BUILD_REF: v24.11
   ARMBIAN_BOARD: panther-x2
   ARMBIAN_KERNEL: 6.1.y
   KERNEL_REPO: ophub/kernel
@@ -61,12 +62,12 @@ jobs:
           df -hT
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Download Armbian source code
+      - name: Download pinned Armbian source code
         id: down
         working-directory: /builder
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         run: |
-          git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
+          git clone -q --single-branch --depth=1 --branch=${ARMBIAN_BUILD_REF} https://github.com/armbian/build.git build
           ln -sf /builder/build ${{ github.workspace }}/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -133,6 +134,7 @@ jobs:
             - SoC: `rk3566`
             - Platform: `rockchip`
             - OS release: `debian bullseye`
+            - Armbian build source: `armbian/build@v24.11`
             - Kernel tag: `rk35xx/6.1.y` auto latest
             - Default username: `root`
             - Default password: `1234`
