@@ -26,7 +26,7 @@ permissions:
 env:
   TZ: Etc/UTC
   ARMBIAN_RELEASE: bullseye
-  ARMBIAN_BUILD_REF: v24.11
+  ARMBIAN_BUILD_REF: v23.05
   ARMBIAN_BOARD: panther-x2
   ARMBIAN_KERNEL: 6.1.y
   KERNEL_REPO: ophub/kernel
@@ -127,14 +127,13 @@ jobs:
           removeArtifacts: false
           replacesArtifacts: true
           makeLatest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             ### Armbian Image Information
             - Board: `panther-x2`
             - SoC: `rk3566`
             - Platform: `rockchip`
             - OS release: `debian bullseye`
-            - Armbian build source: `armbian/build@v24.11`
+            - Armbian build source: `armbian/build@v23.05`
             - Kernel tag: `rk35xx/6.1.y` auto latest
             - Default username: `root`
             - Default password: `1234`
