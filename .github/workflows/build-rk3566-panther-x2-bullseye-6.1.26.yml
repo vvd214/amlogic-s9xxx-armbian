@@ -1,4 +1,4 @@
-name: Build RK3566 Panther-X2 Bullseye 6.1.26
+name: Build RK3566 Panther-X2 Bullseye 6.1.y
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ env:
   TZ: Etc/UTC
   ARMBIAN_RELEASE: bullseye
   ARMBIAN_BOARD: panther-x2
-  ARMBIAN_KERNEL: 6.1.26
+  ARMBIAN_KERNEL: 6.1.y
   KERNEL_REPO: ophub/kernel
   KERNEL_USAGE: stable
   MODEL_DATABASE: build-armbian/armbian-files/common-files/etc/model_database.conf
@@ -93,12 +93,12 @@ jobs:
           echo "build_tag=Armbian_${ARMBIAN_RELEASE}_rk3566_panther-x2_${ARMBIAN_KERNEL}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Force Panther-X2 kernel tag to 6.1.26
+      - name: Force Panther-X2 kernel tag to 6.1.y
         id: patch_model
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
         run: |
           grep -n ':Panther-X2' "${MODEL_DATABASE}"
-          sed -i -E '/:Panther-X2[[:space:]]*:rk3566[[:space:]]*:/ s/:stable\/[0-9][^:]*[[:space:]]*:rockchip/:stable\/6.1.26         :rockchip/' "${MODEL_DATABASE}"
+          sed -i -E '/:Panther-X2[[:space:]]*:rk3566[[:space:]]*:/ s/:stable\/[0-9][^:]*[[:space:]]*:rockchip/:stable\/6.1.y          :rockchip/' "${MODEL_DATABASE}"
           grep -n ':Panther-X2' "${MODEL_DATABASE}"
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -110,7 +110,7 @@ jobs:
           armbian_path: build/output/images/*.img.gz
           armbian_board: ${{ env.ARMBIAN_BOARD }}
           armbian_kernel: ${{ env.ARMBIAN_KERNEL }}
-          auto_kernel: false
+          auto_kernel: true
           kernel_repo: ${{ env.KERNEL_REPO }}
           kernel_usage: ${{ env.KERNEL_USAGE }}
           armbian_fstype: ${{ inputs.armbian_fstype }}
@@ -133,6 +133,6 @@ jobs:
             - SoC: `rk3566`
             - Platform: `rockchip`
             - OS release: `debian bullseye`
-            - Kernel: `6.1.26`
+            - Kernel: `6.1.y` auto latest stable
             - Default username: `root`
             - Default password: `1234`
