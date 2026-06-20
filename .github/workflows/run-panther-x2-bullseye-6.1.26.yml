@@ -1,0 +1,27 @@
+name: Run Panther-X2 Bullseye 6.1.26 Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Panther-X2 Bullseye 6.1.26 workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_WORKFLOW: build-rk3566-panther-x2-bullseye-6.1.26.yml
+          TARGET_REF: Armbian_bookworm_arm64_server_2026.05
+        run: |
+          gh workflow run "${TARGET_WORKFLOW}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref "${TARGET_REF}" \
+            -f armbian_fstype=ext4 \
+            -f builder_name=vvd214 \
+            -f config_board=odroidn2
+
+          echo "Dispatched ${TARGET_WORKFLOW} on ${TARGET_REF}"
