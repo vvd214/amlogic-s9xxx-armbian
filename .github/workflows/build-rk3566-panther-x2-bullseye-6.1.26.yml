@@ -29,7 +29,7 @@ env:
   ARMBIAN_BOARD: panther-x2
   ARMBIAN_KERNEL: 6.1.y
   KERNEL_REPO: ophub/kernel
-  KERNEL_USAGE: stable
+  KERNEL_USAGE: rk35xx
   MODEL_DATABASE: build-armbian/armbian-files/common-files/etc/model_database.conf
   ROOTFS_SCRIPT: compile-kernel/tools/script/docker/build_armbian_rootfs_file.sh
 
@@ -90,15 +90,15 @@ jobs:
         run: |
           chmod +x ${ROOTFS_SCRIPT}
           ${ROOTFS_SCRIPT} -v ${ARMBIAN_RELEASE} -s true -c true -k true -p arm64
-          echo "build_tag=Armbian_${ARMBIAN_RELEASE}_rk3566_panther-x2_${ARMBIAN_KERNEL}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "build_tag=Armbian_${ARMBIAN_RELEASE}_rk3566_panther-x2_rk35xx_${ARMBIAN_KERNEL}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Force Panther-X2 kernel tag to 6.1.y
+      - name: Force Panther-X2 kernel tag to rk35xx/6.1.y
         id: patch_model
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
         run: |
           grep -n ':Panther-X2' "${MODEL_DATABASE}"
-          sed -i -E '/:Panther-X2[[:space:]]*:rk3566[[:space:]]*:/ s/:stable\/[0-9][^:]*[[:space:]]*:rockchip/:stable\/6.1.y          :rockchip/' "${MODEL_DATABASE}"
+          sed -i -E '/:Panther-X2[[:space:]]*:rk3566[[:space:]]*:/ s/:[a-z0-9]+\/[0-9][^:]*[[:space:]]*:rockchip/:rk35xx\/6.1.y         :rockchip/' "${MODEL_DATABASE}"
           grep -n ':Panther-X2' "${MODEL_DATABASE}"
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -133,6 +133,6 @@ jobs:
             - SoC: `rk3566`
             - Platform: `rockchip`
             - OS release: `debian bullseye`
-            - Kernel: `6.1.y` auto latest stable
+            - Kernel tag: `rk35xx/6.1.y` auto latest
             - Default username: `root`
             - Default password: `1234`
