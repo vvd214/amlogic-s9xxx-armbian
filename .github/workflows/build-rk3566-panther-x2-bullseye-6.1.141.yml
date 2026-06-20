@@ -1,0 +1,138 @@
+name: Build RK3566 Panther-X2 Bullseye 6.1.141
+
+on:
+  workflow_dispatch:
+    inputs:
+      armbian_fstype:
+        description: "Rootfs type"
+        required: false
+        default: "ext4"
+        type: choice
+        options:
+          - ext4
+          - btrfs
+      builder_name:
+        description: "Builder signature"
+        required: false
+        default: "vvd214"
+      config_board:
+        description: "Base Armbian board for rootfs build"
+        required: false
+        default: "odroidn2"
+
+permissions:
+  contents: write
+
+env:
+  TZ: Etc/UTC
+  ARMBIAN_RELEASE: bullseye
+  ARMBIAN_BOARD: panther-x2
+  ARMBIAN_KERNEL: 6.1.141
+  KERNEL_REPO: ophub/kernel
+  KERNEL_USAGE: stable
+  MODEL_DATABASE: build-armbian/armbian-files/common-files/etc/model_database.conf
+  ROOTFS_SCRIPT: compile-kernel/tools/script/docker/build_armbian_rootfs_file.sh
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    if: ${{ github.event.repository.owner.id == github.event.sender.id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt-get update
+          sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2204-build-armbian-depends)
+          sudo -E timedatectl set-timezone "${TZ:-Etc/UTC}"
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Prepare build workspace
+        id: disk
+        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
+        run: |
+          sudo mkdir -p /builder
+          sudo chown -R runner:runner /builder
+          df -hT
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Download Armbian source code
+        id: down
+        working-directory: /builder
+        if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
+        run: |
+          git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
+          ln -sf /builder/build ${{ github.workspace }}/build
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Compile Bullseye base image
+        id: compile
+        working-directory: /builder
+        if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
+        run: |
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes || true
+          config_board="${{ inputs.config_board }}"
+          [ -n "${config_board}" ] || config_board="odroidn2"
+          cd build
+          ./compile.sh RELEASE=${ARMBIAN_RELEASE} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
+            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
+            COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Organize output files
+        id: clean
+        if: ${{ steps.compile.outputs.status == 'success' && !cancelled() }}
+        run: |
+          chmod +x ${ROOTFS_SCRIPT}
+          ${ROOTFS_SCRIPT} -v ${ARMBIAN_RELEASE} -s true -c true -k true -p arm64
+          echo "build_tag=Armbian_${ARMBIAN_RELEASE}_rk3566_panther-x2_${ARMBIAN_KERNEL}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Force Panther-X2 kernel tag to 6.1.141
+        id: patch_model
+        if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
+        run: |
+          grep -n ':Panther-X2' "${MODEL_DATABASE}"
+          sed -i -E '/:Panther-X2[[:space:]]*:rk3566[[:space:]]*:/ s/:stable\/[0-9][^:]*[[:space:]]*:rockchip/:stable\/6.1.141        :rockchip/' "${MODEL_DATABASE}"
+          grep -n ':Panther-X2' "${MODEL_DATABASE}"
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Rebuild Armbian for Panther-X2
+        uses: ./
+        if: ${{ steps.patch_model.outputs.status == 'success' && !cancelled() }}
+        with:
+          build_target: armbian
+          armbian_path: build/output/images/*.img.gz
+          armbian_board: ${{ env.ARMBIAN_BOARD }}
+          armbian_kernel: ${{ env.ARMBIAN_KERNEL }}
+          auto_kernel: false
+          kernel_repo: ${{ env.KERNEL_REPO }}
+          kernel_usage: ${{ env.KERNEL_USAGE }}
+          armbian_fstype: ${{ inputs.armbian_fstype }}
+          builder_name: ${{ inputs.builder_name }}
+
+      - name: Upload image to Release
+        uses: ncipollo/release-action@main
+        if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
+        with:
+          tag: ${{ env.build_tag }}
+          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          makeLatest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### Armbian Image Information
+            - Board: `panther-x2`
+            - SoC: `rk3566`
+            - Platform: `rockchip`
+            - OS release: `debian bullseye`
+            - Kernel: `6.1.141`
+            - Default username: `root`
+            - Default password: `1234`
